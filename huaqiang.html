@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>华强北收手机模拟器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h2 {
+            text-align: center;
+            color: #4CAF50;
+            margin-top: 0;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid #333;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            font-size: 15px;
+        }
+        .stat-item {
+            background: #2a2a2a;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .customer-card {
+            background: #282828;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid #4CAF50;
+        }
+        .phone-info {
+            background: #333;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #e53935;
+        }
+        button.secondary:hover {
+            background: #c62828;
+        }
+        button.warning {
+            background: #ff9800;
+        }
+        button.warning:hover {
+            background: #f57c00;
+        }
+        button.full {
+            grid-column: span 2;
+        }
+        .log-box {
+            background: #111;
+            padding: 12px;
+            border-radius: 6px;
+            height: 120px;
+            overflow-y: auto;
+            font-size: 13px;
+            color: #b0b0b0;
+            margin-top: 15px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📱 华强北收手机模拟器</h2>
+    <div class="header">
+        <div class="stat-item">💰 现金: ¥<span id="cash">2000</span></div>
+        <div class="stat-item">⭐ 口碑: <span id="reputation">50</span></div>
+        <div class="stat-item">📦 库存: <span id="inventory">0</span>台</div>
+    </div>
+
+    <div class="customer-card" id="customerArea">
+        <h3 id="customerTitle">等待客户上门...</h3>
+        <p id="customerDesc">柜台已经准备好，点击下方按钮迎接机友！</p>
+        <div class="phone-info" id="phoneInfo" style="display: none;">
+            <p><strong>手机型号:</strong> <span id="phoneModel">--</span></p>
+            <p><strong>卖家自述:</strong> <span id="sellerDesc">--</span></p>
+            <p><strong>机况检测:</strong> <span id="phoneCondition">未检测 (可能有隐藏暗病)</span></p>
+            <p><strong>市场正常价:</strong> ¥<span id="marketVal">--</span></p>
+        </div>
+    </div>
+
+    <div class="btn-group" id="actionButtons" style="display: none;">
+        <button onclick="inspectPhone()" class="warning full">🔍 拆机/检测机况 (-¥20)</button>
+        <button onclick="makeOffer(0.7)">🔪 狠心砍价 (7折)</button>
+        <button onclick="makeOffer(0.9)">🤝 正常收 (9折)</button>
+        <button onclick="rejectPhone()" class="secondary full">❌ 赶走客户 (不要了)</button>
+    </div>
+
+    <button id="nextBtn" onclick="nextCustomer()" style="width: 100%; margin-top: 10px; padding: 14px;">迎客 / 下一位</button>
+
+    <div class="log-box" id="logBox">
+        [系统] 欢迎来到华强北！发挥你的火眼金睛捡漏，小心遇到扩容机和进水机哦！<br>
+    </div>
+</div>
+
+<script>
+    let gameState = {
+        cash: 2000,
+        reputation: 50,
+        inventory: 0,
+        currentCustomer: null
+    };
+
+    const phonePool = [
+        { model: "苹果 iPhone 11 (128G)", market: 1200, desc: "电池有点虚，屏幕换过。", defects: "屏幕后压、电池损耗 72%", modifier: 0.75 },
+        { model: "华为 P40 (128G)", market: 1400, desc: "备用机，外观有点轻微磕碰。", defects: "轻微磕碰、无拆无修", modifier: 0.8 },
+        { model: "诺基亚 105 经典版", market: 100, desc: "祖传备用机，结实耐用。", defects: "完美机况、正常使用", modifier: 0.85 },
+        { model: "苹果 iPhone SE 3", market: 660, desc: "学生党急出，带价来。", defects: "后压屏、电池极差", modifier: 0.65 },
+        { model: "小米 12 (256G)", market: 1500, desc: "朋友送的，成色挺新。", defects: "暗病进水、主板维修过", modifier: 0.55 }
+    ];
+
+    function log(message) {
+        const box = document.getElementById('logBox');
+        box.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function nextCustomer() {
+        const template = phonePool[Math.floor(Math.random() * phonePool.length)];
+        const offerTarget = Math.round(template.market * template.modifier);
+        
+        gameState.currentCustomer = {
+            model: template.model,
+            market: template.market,
+            desc: template.desc,
+            defects: template.defects,
+            offerTarget: offerTarget,
+            inspected: false
+        };
+
+        document.getElementById('customerTitle').innerText = "👤 客户上门咨询";
+        document.getElementById('customerDesc').innerText = `老板，我想出手一台 ${template.model}，${template.desc}`;
+        
+        document.getElementById('phoneModel').innerText = template.model;
+        document.getElementById('sellerDesc').innerText = template.desc;
+        document.getElementById('phoneCondition').innerText = "未检测 (需支付 ¥20 拆机检测)";
+        document.getElementById('marketVal').innerText = "???";
+        document.getElementById('phoneInfo').style.display = "block";
+        document.getElementById('actionButtons').style.display = "grid";
+        document.getElementById('nextBtn').style.display = "none";
+        
+        log(`新客户上门，带来了 ${template.model}。`);
+    }
+
+    function inspectPhone() {
+        if (gameState.cash < 20) {
+            alert("现金不足，无法支付检测费！");
+            return;
+        }
+        gameState.cash -= 20;
+        updateUI();
+
+        const cust = gameState.currentCustomer;
+        cust.inspected = true;
+        document.getElementById('phoneCondition').innerText = cust.defects;
+        document.getElementById('marketVal').innerText = cust.market;
+        log(`花费 ¥20 完成检测：发现问题 -> ${cust.defects}，市场估价 ¥${cust.market}`);
+    }
+
+    function makeOffer(discountRate) {
+        const cust = gameState.currentCustomer;
+        if (!cust) return;
+
+        let finalOffer = Math.round(cust.market * discountRate);
+        
+        if (gameState.cash < finalOffer) {
+            alert("现金不足，买不起这台机器！");
+            return;
+        }
+
+        // 判定客户是否接受：砍得太狠容易跑单
+        let acceptProb = discountRate <= 0.65 ? 0.3 : (discountRate <= 0.75 ? 0.6 : 0.9);
+        
+        if (Math.random() < acceptProb) {
+            gameState.cash -= finalOffer;
+            gameState.inventory += 1;
+            gameState.reputation += discountRate <= 0.7 ? 2 : 1;
+            log(`🎉 成功收下 ${cust.model}，成交价 ¥${finalOffer}！`);
+            alert(`成交！你以 ¥${finalOffer} 的价格收下了手机。`);
+        } else {
+            gameState.reputation -= 1;
+            log(`❌ 报价 ¥${finalOffer} 太低，客户气得扭头就走了！`);
+            alert(`客户嫌出价太低，直接把手机揣兜里走了！`);
+        }
+
+        endCustomerTurn();
+    }
+
+    function rejectPhone() {
+        log(`你婉拒了这台手机，客户拿着机器离开了。`);
+        endCustomerTurn();
+    }
+
+    function endCustomerTurn() {
+        gameState.currentCustomer = null;
+        document.getElementById('customerTitle').innerText = "等待客户上门...";
+        document.getElementById('customerDesc').innerText = "柜台已经准备好，点击下方按钮迎接机友！";
+        document.getElementById('phoneInfo').style.display = "none";
+        document.getElementById('actionButtons').style.display = "none";
+        document.getElementById('nextBtn').style.display = "block";
+        updateUI();
+    }
+
+    function updateUI() {
+        document.getElementById('cash').innerText = gameState.cash;
+        document.getElementById('reputation').innerText = gameState.reputation;
+        document.getElementById('inventory').innerText = gameState.inventory;
+    }
+</script>
+
+</body>
+</html>
+"
